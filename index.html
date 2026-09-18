@@ -61,12 +61,12 @@
 
     <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
         <label for="plakaText">Plaka Yazısı:</label>
-        <input type="text" id="plakaText" value="34 PLAKA" oninput="updateKeychain()" style="margin-top: 5px;">
+        <input type="text" id="plakaText" value="06 DDV 18" oninput="updateKeychain()" style="margin-top: 5px;">
     </div>
 
     <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
         <label for="isimText">İsim (Alt Yazı):</label>
-        <input type="text" id="isimText" value="isim soyisim" oninput="updateKeychain()" style="margin-top: 5px;">
+        <input type="text" id="isimText" value="DD_VECTOR" oninput="updateKeychain()" style="margin-top: 5px;">
     </div>
 
     <label style="display:block; margin-bottom:6px;">TR Kutusu Rengi:</label>
@@ -219,8 +219,8 @@
         
         const kalinlik = parseFloat(document.getElementById('kalinlikInput').value) || 3;
         const delikCap = parseFloat(document.getElementById('delikInput').value) || 5;
-        const plakaText = document.getElementById('plakaText').value || "34 PLAKA";
-        const isimText = document.getElementById('isimText').value || "isim soyisim";
+        const plakaText = document.getElementById('plakaText').value || "06 DDV 18";
+        const isimText = document.getElementById('isimText').value || "DD_VECTOR";
         const trRenk = RENKLER[currentColor];
 
         const kabartmaYuksekligi = kalinlik * KABARTMA_ORANI;
@@ -242,8 +242,9 @@
         const delikMerkezX = -uzunluk / 2 + kenarlikKalinlik + delikCap / 2 + 1;
         const delikMerkezY = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik / 2;
 
-        const beyazZ = plakaYuksekligi + 0.05;
-        const yaziZ = beyazZ + 0.05;
+        // Z katmanları (yazıların zemine basması için)
+        const beyazZ = plakaYuksekligi; // Beyaz plaka siyah kenarlığın tam üstünde
+        const kabartmaYazZ = beyazZ;    // Yazılar beyaz zeminin üstünde başlar
 
         // ============================================
         // 1. SİYAH KENARLIK (En dış katman) - DELİKLİ
@@ -267,19 +268,24 @@
         keychainGroup.add(disMesh);
 
         // ============================================
-        // 2. BEYAZ PLAKA (Siyah kenarlığın üstünde)
+        // 2. BEYAZ PLAKA (Siyah kenarlığın içinde) - DELİKLİ!
         // ============================================
         const icGenislik = uzunluk - kenarlikKalinlik * 2;
         const icYukseklik = yukseklik - kenarlikKalinlik * 2;
         const icShape = createRoundedRectShape(icGenislik, icYukseklik, 1);
         
+        // ÖNEMLİ: Beyaz plakaya da aynı deliği aç (karşıdan karşıya geçsin)
+        const icDelik = new THREE.Path();
+        icDelik.absarc(delikMerkezX, delikMerkezY, delikCap / 2, 0, Math.PI * 2, true);
+        icShape.holes.push(icDelik);
+        
         const icGeo = new THREE.ExtrudeGeometry(icShape, {
-            depth: 0.15,
+            depth: 0.2,
             bevelEnabled: false
         });
         icGeo.center();
         const icMesh = new THREE.Mesh(icGeo, beyazMat);
-        icMesh.position.set(0, 0, beyazZ + 0.075);
+        icMesh.position.set(0, 0, beyazZ + 0.1);
         keychainGroup.add(icMesh);
 
         // ============================================
@@ -290,9 +296,10 @@
         const trKutuX = -uzunluk / 2 + kenarlikKalinlik + trKutuGenislik / 2 + 1;
         const trKutuY = yukseklik / 2 - kenarlikKalinlik - trKutuYukseklik / 2 - 1;
 
+        // TR kutusu - zemine basması için Z konumu beyazZ
         const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, kabartmaYuksekligi);
         const trKutuMesh = new THREE.Mesh(trKutuGeo, trMat);
-        trKutuMesh.position.set(trKutuX, trKutuY, yaziZ + kabartmaYuksekligi / 2);
+        trKutuMesh.position.set(trKutuX, trKutuY, beyazZ + 0.1 + kabartmaYuksekligi / 2);
         keychainGroup.add(trKutuMesh);
 
         // TR yazısı
@@ -309,12 +316,12 @@
         trMesh.position.set(
             trKutuX - trWidth / 2,
             trKutuY - trFontSize / 2.5,
-            yaziZ + kabartmaYuksekligi
+            beyazZ + 0.1 + kabartmaYuksekligi
         );
         keychainGroup.add(trMesh);
 
         // ============================================
-        // 4. PLAKA YAZISI (Beyaz zemin üstünde siyah kabartma)
+        // 4. PLAKA YAZISI (Beyaz zemin üstünde siyah kabartma - ZEMİNE BASAR)
         // ============================================
         const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 2;
         const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - kenarlikKalinlik - 2;
@@ -371,29 +378,30 @@
             plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
         }
 
+        // ÖNEMLİ: Yazı Z konumu beyazZ (zemine basar, havada durmaz)
         const plakaTextMesh = new THREE.Mesh(plakaTextGeo, siyahTextMat);
         plakaTextMesh.position.set(
             plakaYaziAlanX + (plakaYaziAlanGenislik - plakaTextWidth) / 2,
             plakaYaziY - plakaYaziFontSize / 2.5,
-            yaziZ + kabartmaYuksekligi
+            beyazZ + 0.1
         );
         keychainGroup.add(plakaTextMesh);
 
         // ============================================
-        // 5. İSİM ŞERİDİ (ALT KISIM - SİYAH ZEMİN + BEYAZ YAZI)
+        // 5. İSİM ŞERİDİ (SİYAH ZEMİN + BEYAZ YAZI)
         // ============================================
         const isimSeritY = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik / 2;
 
-        // SİYAH ARKA PLAN ŞERİDİ (isim barının altına)
-        const seritGenislik = icGenislik - 2;
-        const seritGeo = new THREE.BoxGeometry(seritGenislik, isimlikYukseklik * 0.85, 0.3);
+        // SİYAH ARKA PLAN ŞERİDİ (isim barının arkası)
+        const seritGenislik = icGenislik - 1;
+        const seritGeo = new THREE.BoxGeometry(seritGenislik, isimlikYukseklik * 0.85, 0.15);
         const seritMesh = new THREE.Mesh(seritGeo, siyahMat);
         seritMesh.position.set(0, isimSeritY, beyazZ + 0.2);
         keychainGroup.add(seritMesh);
 
-        // İsim yazısı (BEYAZ, siyah şeridin üstünde kabartma)
+        // İsim yazısı (BEYAZ, siyah şeridin üstünde kabartma - ZEMİNE BASAR)
         if (isimText.trim() !== "") {
-            const isimFontSize = isimlikYukseklik * 0.6;
+            const isimFontSize = isimlikYukseklik * 0.55;
             let isimGeo;
             try {
                 isimGeo = new THREE.TextGeometry(isimText, {
@@ -413,7 +421,7 @@
             isimGeo.computeBoundingBox();
             let isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
 
-            // İsim yazısı için alan: deliğin sağından plakanın sağına kadar
+            // İsim yazısı deliğin sağından başlasın
             const isimAlanSol = delikMerkezX + delikCap / 2 + 2;
             const isimAlanGenislik = (uzunluk / 2 - kenarlikKalinlik - 1) - isimAlanSol;
             
@@ -433,7 +441,7 @@
                 isimMesh.position.set(
                     isimAlanSol + (isimAlanGenislik - isimWidth) / 2,
                     isimSeritY - newSize / 2.5,
-                    beyazZ + 0.5
+                    beyazZ + 0.3
                 );
                 keychainGroup.add(isimMesh);
             } else {
@@ -441,7 +449,7 @@
                 isimMesh.position.set(
                     isimAlanSol + (isimAlanGenislik - isimWidth) / 2,
                     isimSeritY - isimFontSize / 2.5,
-                    beyazZ + 0.5
+                    beyazZ + 0.3
                 );
                 keychainGroup.add(isimMesh);
             }
