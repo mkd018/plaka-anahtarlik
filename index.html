@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
     <style>
         * { box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; }
         .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 500px; max-width: 100%; }
         h2 { color: #333; margin-top: 0; text-align: center; font-size: 20px; }
         .form-group { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
@@ -21,24 +21,21 @@
         .full-width { width: 100%; display: block; margin-bottom: 8px; }
         .full-width input { width: 100%; text-align: left; }
 
-        /* Araç Tipi Seçici */
         .vehicle-selector { display: flex; gap: 10px; margin-bottom: 15px; }
         .vehicle-btn { flex: 1; padding: 12px; border: 2px solid #ddd; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.2s; text-align: center; }
         .vehicle-btn:hover { border-color: #007bff; }
         .vehicle-btn.active { border-color: #007bff; background: #e7f3ff; color: #007bff; }
         .vehicle-btn .emoji { display: block; font-size: 22px; margin-bottom: 4px; }
 
-        /* TR Kutusu Renk Seçici */
         .color-selector { display: flex; gap: 10px; margin-bottom: 15px; }
         .color-btn { flex: 1; padding: 12px; border: 3px solid transparent; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: white; transition: all 0.2s; }
         .color-btn.mavi { background: #003399; }
         .color-btn.kirmizi { background: #CC0000; }
         .color-btn.active { border-color: #333; box-shadow: 0 0 0 2px white inset; }
-        .color-btn:hover { opacity: 0.9; }
 
         #canvas-container { width: 100%; height: 280px; background: #e9ecef; border-radius: 8px; margin: 15px 0; position: relative; overflow: hidden; cursor: grab; }
         #canvas-container:active { cursor: grabbing; }
-        button.action-btn { background: #007bff; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button.action-btn { background: #007bff; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; }
         button.action-btn:hover { background: #0056b3; }
         button.action-btn:disabled { background: #ccc; cursor: not-allowed; }
         hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
@@ -64,12 +61,12 @@
 
     <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
         <label for="plakaText">Plaka Yazısı:</label>
-        <input type="text" id="plakaText" value="59 XXX 7XX" oninput="updateKeychain()" style="margin-top: 5px;">
+        <input type="text" id="plakaText" value="34 PLAKA" oninput="updateKeychain()" style="margin-top: 5px;">
     </div>
 
     <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
         <label for="isimText">İsim (Alt Yazı):</label>
-        <input type="text" id="isimText" value="MUSTAFA" oninput="updateKeychain()" style="margin-top: 5px;">
+        <input type="text" id="isimText" value="isim soyisim" oninput="updateKeychain()" style="margin-top: 5px;">
     </div>
 
     <label style="display:block; margin-bottom:6px;">TR Kutusu Rengi:</label>
@@ -107,33 +104,21 @@
 <script>
     let scene, camera, renderer, controls, keychainGroup, loadedFont = null;
 
-    // ============================================
-    // AYARLAR
-    // ============================================
     const VEHICLE_SETTINGS = {
-        araba: {
-            oran: 520 / 110,        // Gerçek oran: 520mm / 110mm = 4.727
-            varsayilanUzunluk: 100,  // mm
-            isim: 'Otomobil'
-        },
-        moto: {
-            oran: 240 / 150,         // Gerçek oran: 240mm / 150mm = 1.6
-            varsayilanUzunluk: 70,   // mm
-            isim: 'Motosiklet'
-        }
+        araba: { oran: 520 / 110, varsayilanUzunluk: 100, isim: 'Otomobil' },
+        moto:  { oran: 240 / 150, varsayilanUzunluk: 70,  isim: 'Motosiklet' }
     };
 
-    const RENKLER = {
-        mavi: 0x003399,      // Türk plakası mavisi
-        kirmizi: 0xCC0000    // Kırmızı
-    };
+    const RENKLER = { mavi: 0x003399, kirmizi: 0xCC0000 };
 
     let currentVehicle = 'araba';
     let currentColor = 'mavi';
 
     // ============================================
-    // 3D KURULUM
+    // KABARTMA ORANI - Toplam kalınlığın %35'i kabartma
     // ============================================
+    const KABARTMA_ORANI = 0.35;
+
     function init3D() {
         const container = document.getElementById('canvas-container');
         scene = new THREE.Scene();
@@ -164,19 +149,15 @@
         animate();
     }
 
-    // ============================================
-    // FONT YÜKLEME
-    // ============================================
     function loadFont() {
         const statusEl = document.getElementById('status');
         const downloadBtn = document.getElementById('downloadBtn');
         statusEl.innerText = "Font yükleniyor...";
         statusEl.className = "status loading";
 
-        // Türkçe destekli Optimer Bold fontunu kullan
         const loader = new THREE.FontLoader();
         loader.load(
-            'https://threejs.org/examples/fonts/optimer_bold.typeface.json',
+            'Open_Sans_Regular.json',
             function (font) {
                 loadedFont = font;
                 statusEl.innerText = "✅ Font yüklendi! Hazır.";
@@ -186,30 +167,20 @@
             },
             undefined,
             function () {
-                statusEl.innerText = "❌ Font yüklenemedi! İnternet bağlantınızı kontrol edin.";
+                statusEl.innerText = "❌ Font yüklenemedi!";
                 statusEl.className = "status error";
             }
         );
     }
 
-    // ============================================
-    // ARAÇ TİPİ DEĞİŞTİR
-    // ============================================
     function setVehicle(type) {
         currentVehicle = type;
         document.getElementById('btnAraba').classList.toggle('active', type === 'araba');
         document.getElementById('btnMoto').classList.toggle('active', type === 'moto');
-        
-        // Uzunluğu varsayılana ayarla
-        const uzunlukInput = document.getElementById('uzunlukInput');
-        uzunlukInput.value = VEHICLE_SETTINGS[type].varsayilanUzunluk;
-        
+        document.getElementById('uzunlukInput').value = VEHICLE_SETTINGS[type].varsayilanUzunluk;
         updateKeychain();
     }
 
-    // ============================================
-    // RENK DEĞİŞTİR
-    // ============================================
     function setColor(color) {
         currentColor = color;
         document.getElementById('btnMavi').classList.toggle('active', color === 'mavi');
@@ -217,17 +188,10 @@
         updateKeychain();
     }
 
-    // ============================================
-    // YÜKSEKLİK OTOMATİK HESAPLAMA
-    // ============================================
     function hesaplaYukseklik(uzunluk) {
-        const oran = VEHICLE_SETTINGS[currentVehicle].oran;
-        return (uzunluk / oran).toFixed(1);
+        return (uzunluk / VEHICLE_SETTINGS[currentVehicle].oran).toFixed(1);
     }
 
-    // ============================================
-    // YUVARLATILMIŞ DİKDÖRTGEN (Ana hat)
-    // ============================================
     function createRoundedRectShape(width, height, radius) {
         const shape = new THREE.Shape();
         const x = -width / 2;
@@ -243,7 +207,6 @@
         shape.quadraticCurveTo(x + width, y, x + width - radius, y);
         shape.lineTo(x + radius, y);
         shape.quadraticCurveTo(x, y, x, y + radius);
-        
         return shape;
     }
 
@@ -256,114 +219,136 @@
 
         keychainGroup = new THREE.Group();
 
-        // Girdileri oku
+        // Girdiler
         const uzunluk = parseFloat(document.getElementById('uzunlukInput').value) || 100;
         const yukseklik = parseFloat(hesaplaYukseklik(uzunluk));
         document.getElementById('yukseklikInput').value = yukseklik;
         
         const kalinlik = parseFloat(document.getElementById('kalinlikInput').value) || 3;
         const delikCap = parseFloat(document.getElementById('delikInput').value) || 5;
-        const plakaText = document.getElementById('plakaText').value || "59 XXX 7XX";
-        const isimText = document.getElementById('isimText').value || "MUSTAFA";
+        const plakaText = document.getElementById('plakaText').value || "34 PLAKA";
+        const isimText = document.getElementById('isimText').value || "isim soyisim";
         const trRenk = RENKLER[currentColor];
+
+        // Kalınlık bölünmesi
+        const kabartmaYuksekligi = kalinlik * KABARTMA_ORANI;
+        const plakaYuksekligi = kalinlik - kabartmaYuksekligi;
 
         // Malzemeler
         const beyazMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.4 });
         const siyahMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
         const trMat = new THREE.MeshStandardMaterial({ color: trRenk, roughness: 0.3 });
-        const plakaTextMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.3 });
-        const isimTextMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
-        const trTextMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+        const siyahTextMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.3 });
+        const beyazTextMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
 
         // ============================================
-        // 1. ANA PLAKA (BEYAZ ZEMİN)
+        // ORANLAR (plaka yüksekliğine göre)
         // ============================================
-        // Delik sol tarafta olacak
-        const delikMerkezX = -uzunluk / 2 + 4;
-        const plakaShape = createRoundedRectShape(uzunluk, yukseklik, 1.5);
+        const kenarlikKalinlik = yukseklik * 0.06;           // Siyah kenarlık kalınlığı
+        const isimlikYukseklik = yukseklik * 0.28;           // Alt isimlik yüksekliği
+        const ustAlanYukseklik = yukseklik - isimlikYukseklik; // Üst alan (plaka yazısı)
+
+        // ============================================
+        // 1. ANA PLAKA (BEYAZ ZEMİN + SİYAH KENARLIK)
+        // ============================================
+        // Delik sol kenarın TAM ORTASINDA (y = 0)
+        const delikMerkezX = -uzunluk / 2 + kenarlikKalinlik + delikCap / 2 + 1;
         
-        // Delik
-        const delikPath = new THREE.Path();
-        delikPath.absarc(delikMerkezX, 0, delikCap / 2, 0, Math.PI * 2, true);
-        plakaShape.holes.push(delikPath);
-
-        const plakaGeo = new THREE.ExtrudeGeometry(plakaShape, {
-            depth: kalinlik,
+        // Dış siyah çerçeve (en dışta)
+        const disShape = createRoundedRectShape(uzunluk, yukseklik, 2);
+        const disDelik = new THREE.Path();
+        disDelik.absarc(delikMerkezX, 0, delikCap / 2, 0, Math.PI * 2, true);
+        disShape.holes.push(disDelik);
+        
+        const disGeo = new THREE.ExtrudeGeometry(disShape, {
+            depth: plakaYuksekligi,
             bevelEnabled: true,
             bevelSegments: 2,
             steps: 1,
             bevelSize: 0.1,
             bevelThickness: 0.1
         });
-        plakaGeo.center();
-        const plakaMesh = new THREE.Mesh(plakaGeo, beyazMat);
-        plakaMesh.position.set(0, 0, kalinlik / 2);
-        keychainGroup.add(plakaMesh);
+        disGeo.center();
+        const disMesh = new THREE.Mesh(disGeo, siyahMat);
+        disMesh.position.set(0, 0, plakaYuksekligi / 2);
+        keychainGroup.add(disMesh);
+
+        // İç beyaz alan (kenarlık içinde kalacak şekilde)
+        const icGenislik = uzunluk - kenarlikKalinlik * 2;
+        const icYukseklik = yukseklik - kenarlikKalinlik * 2;
+        const icShape = createRoundedRectShape(icGenislik, icYukseklik, 1);
+        // İç alana delik açma (delik zaten dışta kalıyor ama emin olalım)
+        
+        const icGeo = new THREE.ExtrudeGeometry(icShape, {
+            depth: plakaYuksekligi,
+            bevelEnabled: false
+        });
+        icGeo.center();
+        const icMesh = new THREE.Mesh(icGeo, beyazMat);
+        icMesh.position.set(0, 0, plakaYuksekligi / 2);
+        keychainGroup.add(icMesh);
 
         // ============================================
-        // 2. TR KUTUSU (Mavi veya Kırmızı)
+        // 2. TR KUTUSU (Sol üstte, mavi/kırmızı)
         // ============================================
-        const trKutuGenislik = yukseklik * 0.55;
-        const trKutuYukseklik = yukseklik * 0.55;
-        const trKutuX = -uzunluk / 2 + 4 + delikCap / 2 + 1 + trKutuGenislik / 2;
-        const trKutuY = (yukseklik / 2) - (trKutuYukseklik / 2) - 1;
+        const trKutuGenislik = ustAlanYukseklik * 0.75;
+        const trKutuYukseklik = ustAlanYukseklik * 0.75;
+        const trKutuX = -uzunluk / 2 + kenarlikKalinlik + trKutuGenislik / 2 + 1.5;
+        const trKutuY = yukseklik / 2 - kenarlikKalinlik - trKutuYukseklik / 2 - 1.5;
 
-        const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, 0.8);
+        const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, 0.6);
         const trKutuMesh = new THREE.Mesh(trKutuGeo, trMat);
-        trKutuMesh.position.set(trKutuX, trKutuY, kalinlik + 0.4);
+        trKutuMesh.position.set(trKutuX, trKutuY, plakaYuksekligi + 0.3);
         keychainGroup.add(trKutuMesh);
 
         // TR yazısı
-        if (loadedFont) {
-            const trFontSize = trKutuYukseklik * 0.6;
-            const trGeo = new THREE.TextGeometry("TR", {
-                font: loadedFont,
-                size: trFontSize,
-                height: 0.5,
-                curveSegments: 8
-            });
-            trGeo.computeBoundingBox();
-            const trWidth = trGeo.boundingBox.max.x - trGeo.boundingBox.min.x;
-            const trMesh = new THREE.Mesh(trGeo, trTextMat);
-            trMesh.position.set(
-                trKutuX - trWidth / 2,
-                trKutuY - trFontSize / 2.5,
-                kalinlik + 0.8
-            );
-            keychainGroup.add(trMesh);
-        }
+        const trFontSize = trKutuYukseklik * 0.65;
+        const trGeo = new THREE.TextGeometry("TR", {
+            font: loadedFont,
+            size: trFontSize,
+            height: kabartmaYuksekligi,
+            curveSegments: 8
+        });
+        trGeo.computeBoundingBox();
+        const trWidth = trGeo.boundingBox.max.x - trGeo.boundingBox.min.x;
+        const trMesh = new THREE.Mesh(trGeo, beyazTextMat);
+        trMesh.position.set(
+            trKutuX - trWidth / 2,
+            trKutuY - trFontSize / 2.5,
+            plakaYuksekligi
+        );
+        keychainGroup.add(trMesh);
 
         // ============================================
-        // 3. PLAKA ÜST YAZISI (Siyah, kabartma)
+        // 3. PLAKA ÜST YAZISI (Büyük, siyah, kabartma)
         // ============================================
-        const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 1.5;
-        const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - 1.5;
-        const plakaYaziFontSize = yukseklik * 0.5;
-
-        // Üst yazı alanı - plakayı üst kısma yerleştir
-        const plakaYaziY = yukseklik * 0.12;
+        const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 2;
+        const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - kenarlikKalinlik - 2;
+        const plakaYaziFontSize = ustAlanYukseklik * 0.75;
+        const plakaYaziY = yukseklik / 2 - kenarlikKalinlik - ustAlanYukseklik / 2;
 
         let plakaTextGeo;
         try {
             plakaTextGeo = new THREE.TextGeometry(plakaText, {
                 font: loadedFont,
                 size: plakaYaziFontSize,
-                height: 0.5,
+                height: kabartmaYuksekligi,
                 curveSegments: 8
             });
         } catch(e) {
-            plakaTextGeo = new THREE.TextGeometry(plakaText.replace(/[ÇĞİÖŞÜçğıöşü]/g, '?'), {
+            plakaTextGeo = new THREE.TextGeometry("PLAKA", {
                 font: loadedFont,
                 size: plakaYaziFontSize,
-                height: 0.5,
+                height: kabartmaYuksekligi,
                 curveSegments: 8
             });
         }
         
         plakaTextGeo.computeBoundingBox();
         let plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
+        let plakaTextHeight = plakaTextGeo.boundingBox.max.y - plakaTextGeo.boundingBox.min.y;
 
-        // Sığdır
+        // Genişlik sığdır
         if (plakaTextWidth > plakaYaziAlanGenislik && plakaTextWidth > 0) {
             const scale = plakaYaziAlanGenislik / plakaTextWidth;
             const newSize = plakaYaziFontSize * scale;
@@ -371,93 +356,114 @@
             plakaTextGeo = new THREE.TextGeometry(plakaText, {
                 font: loadedFont,
                 size: newSize,
-                height: 0.5,
+                height: kabartmaYuksekligi,
                 curveSegments: 8
             });
             plakaTextGeo.computeBoundingBox();
             plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
         }
 
-        const plakaTextMesh = new THREE.Mesh(plakaTextGeo, plakaTextMat);
+        // Yükseklik sığdır
+        const maxPlakaYaziYukseklik = ustAlanYukseklik * 0.85;
+        if (plakaTextHeight > maxPlakaYaziYukseklik && plakaTextHeight > 0) {
+            const scale = maxPlakaYaziYukseklik / plakaTextHeight;
+            const newSize = plakaYaziFontSize * scale;
+            plakaTextGeo.dispose();
+            plakaTextGeo = new THREE.TextGeometry(plakaText, {
+                font: loadedFont,
+                size: newSize,
+                height: kabartmaYuksekligi,
+                curveSegments: 8
+            });
+            plakaTextGeo.computeBoundingBox();
+            plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
+        }
+
+        const plakaTextMesh = new THREE.Mesh(plakaTextGeo, siyahTextMat);
         plakaTextMesh.position.set(
             plakaYaziAlanX + (plakaYaziAlanGenislik - plakaTextWidth) / 2,
             plakaYaziY - plakaYaziFontSize / 2.5,
-            kalinlik + 0.5
+            plakaYuksekligi
         );
         keychainGroup.add(plakaTextMesh);
 
         // ============================================
-        // 4. ALT SİYAH ŞERİT (İSİMLİK)
+        // 4. İSİM ŞERİDİ (Alt kısım - BEYAZ zemin, SİYAH yazı)
         // ============================================
-        const seritYukseklik = yukseklik * 0.28;
-        const seritY = -yukseklik / 2 + seritYukseklik / 2;
-        const seritX = 4; // Sol taraftaki delik bölgesini atla
+        const isimSeritY = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik / 2;
         
-        const seritGenislik = uzunluk - 8;
-        const seritGeo = new THREE.BoxGeometry(seritGenislik, seritYukseklik, 0.5);
-        const seritMesh = new THREE.Mesh(seritGeo, siyahMat);
-        seritMesh.position.set(seritX, seritY, kalinlik + 0.25);
+        // İsim şeridi (beyaz zemin)
+        const seritGenislik = uzunluk - kenarlikKalinlik * 2;
+        const seritGeo = new THREE.BoxGeometry(seritGenislik, isimlikYukseklik * 0.85, kabartmaYuksekligi);
+        const seritMesh = new THREE.Mesh(seritGeo, beyazMat);
+        seritMesh.position.set(0, isimSeritY, plakaYuksekligi);
         keychainGroup.add(seritMesh);
 
-        // İsim yazısı
+        // İsim yazısı (siyah, kabartma)
         if (isimText.trim() !== "") {
-            const isimFontSize = seritYukseklik * 0.7;
-            const isimGeo = new THREE.TextGeometry(isimText, {
-                font: loadedFont,
-                size: isimFontSize,
-                height: 0.5,
-                curveSegments: 8
-            });
+            const isimFontSize = isimlikYukseklik * 0.65;
+            let isimGeo;
+            try {
+                isimGeo = new THREE.TextGeometry(isimText, {
+                    font: loadedFont,
+                    size: isimFontSize,
+                    height: kabartmaYuksekligi,
+                    curveSegments: 8
+                });
+            } catch(e) {
+                isimGeo = new THREE.TextGeometry("isim", {
+                    font: loadedFont,
+                    size: isimFontSize,
+                    height: kabartmaYuksekligi,
+                    curveSegments: 8
+                });
+            }
             isimGeo.computeBoundingBox();
             let isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
 
-            // Sığdır
-            const maxIsimGenislik = seritGenislik - 2;
+            const maxIsimGenislik = seritGenislik - 4;
             if (isimWidth > maxIsimGenislik && isimWidth > 0) {
                 const scale = maxIsimGenislik / isimWidth;
-                isimGeo.dispose();
                 const newSize = isimFontSize * scale;
-                const newIsimGeo = new THREE.TextGeometry(isimText, {
+                isimGeo.dispose();
+                isimGeo = new THREE.TextGeometry(isimText, {
                     font: loadedFont,
                     size: newSize,
-                    height: 0.5,
+                    height: kabartmaYuksekligi,
                     curveSegments: 8
                 });
-                newIsimGeo.computeBoundingBox();
-                isimWidth = newIsimGeo.boundingBox.max.x - newIsimGeo.boundingBox.min.x;
-                const isimMesh = new THREE.Mesh(newIsimGeo, isimTextMat);
+                isimGeo.computeBoundingBox();
+                isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
+                const isimMesh = new THREE.Mesh(isimGeo, siyahTextMat);
                 isimMesh.position.set(
-                    seritX - isimWidth / 2,
-                    seritY - newSize / 2.5,
-                    kalinlik + 0.6
+                    -isimWidth / 2,
+                    isimSeritY - newSize / 2.5,
+                    plakaYuksekligi
                 );
                 keychainGroup.add(isimMesh);
             } else {
-                const isimMesh = new THREE.Mesh(isimGeo, isimTextMat);
+                const isimMesh = new THREE.Mesh(isimGeo, siyahTextMat);
                 isimMesh.position.set(
-                    seritX - isimWidth / 2,
-                    seritY - isimFontSize / 2.5,
-                    kalinlik + 0.6
+                    -isimWidth / 2,
+                    isimSeritY - isimFontSize / 2.5,
+                    plakaYuksekligi
                 );
                 keychainGroup.add(isimMesh);
             }
         }
 
+        // Tüm modeli ortala
+        keychainGroup.position.set(0, 0, -kalinlik / 2);
+
         scene.add(keychainGroup);
     }
 
-    // ============================================
-    // ANİMASYON
-    // ============================================
     function animate() {
         requestAnimationFrame(animate);
         controls.update();
         renderer.render(scene, camera);
     }
 
-    // ============================================
-    // STL İNDİR
-    // ============================================
     function downloadSTL() {
         if (!keychainGroup) {
             alert("Model henüz yüklenmedi!");
@@ -477,9 +483,6 @@
         link.click();
     }
 
-    // ============================================
-    // PENCERE YENİDEN BOYUTLANDIRMA
-    // ============================================
     window.addEventListener('resize', () => {
         const container = document.getElementById('canvas-container');
         if (camera && renderer) {
