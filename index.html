@@ -297,14 +297,11 @@
 
         // ============================================
         // 3. TR KUTUSU
-        // Otomobil: Sol üst, üst alanın %70'i
-        // Motosiklet: Sol üst, üst alanın %55'i (daha küçük!)
         // ============================================
         const trKutuCarpan = currentVehicle === 'moto' ? 0.55 : 0.7;
         const trKutuGenislik = ustAlanYukseklik * trKutuCarpan;
         const trKutuYukseklik = ustAlanYukseklik * trKutuCarpan;
         const trKutuX = -uzunluk / 2 + kenarlikKalinlik + trKutuGenislik / 2 + 1;
-        // TR kutusu üst alanın ÜST kısmına yaslanacak
         const trKutuY = yukseklik / 2 - kenarlikKalinlik - trKutuYukseklik / 2 - 1;
 
         const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, kabartmaYuksekligi);
@@ -336,16 +333,23 @@
         const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 2;
         const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - kenarlikKalinlik - 2;
 
-        // Yazı alanının dikey sınırları (siyah isim şeridine basmamalı!)
+        // Yazı alanının dikey sınırları
         const ustAlanUst = yukseklik / 2 - kenarlikKalinlik;
         const ustAlanAlt = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik;
 
         if (currentVehicle === 'araba') {
             // ============================================
             // OTOMOBİL: Tek satır
+            // Yazıyı biraz aşağı kaydırıyoruz ve fontu hafifçe küçültüyoruz
             // ============================================
-            let plakaYaziFontSize = ustAlanYukseklik * 0.7;
-            const plakaYaziY = (ustAlanUst + ustAlanAlt) / 2;
+            let plakaYaziFontSize = ustAlanYukseklik * 0.6; // %70 → %60
+            
+            // Yazı merkezini, üst kenarlıktan pay bırakarak konumlandır
+            // Üstten %15 pay, alttan %15 pay kalacak şekilde ortala
+            const ustBosluk = ustAlanYukseklik * 0.12; // Üstten pay
+            const altBosluk = ustAlanYukseklik * 0.12; // Alttan pay
+            const kullanilabilirYukseklik = ustAlanYukseklik - ustBosluk - altBosluk;
+            const plakaYaziY = ustAlanUst - ustBosluk - kullanilabilirYukseklik / 2;
 
             let plakaTextGeo;
             try {
@@ -385,7 +389,7 @@
             }
 
             // Yükseklik sığdır
-            const maxYukseklik = ustAlanYukseklik * 0.8;
+            const maxYukseklik = kullanilabilirYukseklik * 0.9;
             if (plakaTextHeight > maxYukseklik && plakaTextHeight > 0) {
                 const scale = maxYukseklik / plakaTextHeight;
                 const newSize = plakaYaziFontSize * scale;
@@ -415,16 +419,12 @@
             // ============================================
             const bolunmus = metniBol(plakaText);
             
-            // Üst alanı ikiye böl
             const ustAlanToplam = ustAlanUst - ustAlanAlt;
             const satirYukseklik = ustAlanToplam / 2;
             
-            // Yazı boyutu: satır yüksekliğinin %70'i
-            let plakaYaziFontSize = satirYukseklik * 0.7;
+            let plakaYaziFontSize = satirYukseklik * 0.65;
             
-            // Üst satır merkezi (üst yarıda)
             const ustSatirY = ustAlanUst - satirYukseklik / 2;
-            // Alt satır merkezi (alt yarıda)
             const altSatirY = ustAlanAlt + satirYukseklik / 2;
 
             // ---- ÜST SATIR ----
@@ -448,7 +448,6 @@
             let ustWidth = ustGeo.boundingBox.max.x - ustGeo.boundingBox.min.x;
             let ustHeight = ustGeo.boundingBox.max.y - ustGeo.boundingBox.min.y;
 
-            // Genişlik sığdır
             if (ustWidth > plakaYaziAlanGenislik && ustWidth > 0) {
                 const scale = plakaYaziAlanGenislik / ustWidth;
                 const newSize = plakaYaziFontSize * scale;
@@ -464,8 +463,7 @@
                 ustWidth = ustGeo.boundingBox.max.x - ustGeo.boundingBox.min.x;
             }
 
-            // Yükseklik sığdır
-            const maxSatirYukseklik = satirYukseklik * 0.8;
+            const maxSatirYukseklik = satirYukseklik * 0.75;
             if (ustHeight > maxSatirYukseklik && ustHeight > 0) {
                 const scale = maxSatirYukseklik / ustHeight;
                 const newSize = plakaYaziFontSize * scale;
@@ -511,7 +509,6 @@
                 let altWidth = altGeo.boundingBox.max.x - altGeo.boundingBox.min.x;
                 let altHeight = altGeo.boundingBox.max.y - altGeo.boundingBox.min.y;
 
-                // Genişlik sığdır
                 if (altWidth > plakaYaziAlanGenislik && altWidth > 0) {
                     const scale = plakaYaziAlanGenislik / altWidth;
                     const newSize = plakaYaziFontSize * scale;
@@ -526,7 +523,6 @@
                     altWidth = altGeo.boundingBox.max.x - altGeo.boundingBox.min.x;
                 }
 
-                // Yükseklik sığdır
                 if (altHeight > maxSatirYukseklik && altHeight > 0) {
                     const scale = maxSatirYukseklik / altHeight;
                     const newSize = plakaYaziFontSize * scale;
@@ -589,7 +585,7 @@
 
         // İsim yazısı (BEYAZ)
         if (isimText.trim() !== "") {
-            const isimFontSize = isimlikYukseklik * 0.55;
+            const isimFontSize = isimlikYukseklik * 0.5;
             let isimGeo;
             try {
                 isimGeo = new THREE.TextGeometry(isimText, {
