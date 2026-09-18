@@ -238,13 +238,10 @@
         const isimlikYukseklik = yukseklik * 0.28;
         const ustAlanYukseklik = yukseklik - isimlikYukseklik;
 
-        // ============================================
         // DELİK: SOL ALT KÖŞE (isim barının hizasında)
-        // ============================================
         const delikMerkezX = -uzunluk / 2 + kenarlikKalinlik + delikCap / 2 + 1;
         const delikMerkezY = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik / 2;
 
-        // Beyaz plaka Z konumu (siyah kenarlığın üstünde)
         const beyazZ = plakaYuksekligi + 0.05;
         const yaziZ = beyazZ + 0.05;
 
@@ -270,7 +267,7 @@
         keychainGroup.add(disMesh);
 
         // ============================================
-        // 2. BEYAZ PLAKA (Siyah kenarlığın üstüne bindir)
+        // 2. BEYAZ PLAKA (Siyah kenarlığın üstünde)
         // ============================================
         const icGenislik = uzunluk - kenarlikKalinlik * 2;
         const icYukseklik = yukseklik - kenarlikKalinlik * 2;
@@ -286,7 +283,7 @@
         keychainGroup.add(icMesh);
 
         // ============================================
-        // 3. TR KUTUSU (Sol üst, mavi/kırmızı)
+        // 3. TR KUTUSU (Sol üst)
         // ============================================
         const trKutuGenislik = ustAlanYukseklik * 0.7;
         const trKutuYukseklik = ustAlanYukseklik * 0.7;
@@ -345,7 +342,6 @@
         let plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
         let plakaTextHeight = plakaTextGeo.boundingBox.max.y - plakaTextGeo.boundingBox.min.y;
 
-        // Genişlik sığdır
         if (plakaTextWidth > plakaYaziAlanGenislik && plakaTextWidth > 0) {
             const scale = plakaYaziAlanGenislik / plakaTextWidth;
             const newSize = plakaYaziFontSize * scale;
@@ -360,7 +356,6 @@
             plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
         }
 
-        // Yükseklik sığdır
         const maxPlakaYaziYukseklik = ustAlanYukseklik * 0.85;
         if (plakaTextHeight > maxPlakaYaziYukseklik && plakaTextHeight > 0) {
             const scale = maxPlakaYaziYukseklik / plakaTextHeight;
@@ -385,17 +380,18 @@
         keychainGroup.add(plakaTextMesh);
 
         // ============================================
-        // 5. İSİM ŞERİDİ (Alt kısım, beyaz zemin üstünde siyah yazı)
+        // 5. İSİM ŞERİDİ (ALT KISIM - SİYAH ZEMİN + BEYAZ YAZI)
         // ============================================
         const isimSeritY = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik / 2;
 
-        // İnce siyah ayırıcı çizgi (üst bölge ile isim barını ayırır)
-        const ayiriciCizgi = new THREE.BoxGeometry(icGenislik, 0.3, 0.1);
-        const ayiriciMesh = new THREE.Mesh(ayiriciCizgi, siyahMat);
-        ayiriciMesh.position.set(0, yukseklik / 2 - kenarlikKalinlik - ustAlanYukseklik, beyazZ + 0.08);
-        keychainGroup.add(ayiriciMesh);
+        // SİYAH ARKA PLAN ŞERİDİ (isim barının altına)
+        const seritGenislik = icGenislik - 2;
+        const seritGeo = new THREE.BoxGeometry(seritGenislik, isimlikYukseklik * 0.85, 0.3);
+        const seritMesh = new THREE.Mesh(seritGeo, siyahMat);
+        seritMesh.position.set(0, isimSeritY, beyazZ + 0.2);
+        keychainGroup.add(seritMesh);
 
-        // İsim yazısı (SİYAH, kabartma)
+        // İsim yazısı (BEYAZ, siyah şeridin üstünde kabartma)
         if (isimText.trim() !== "") {
             const isimFontSize = isimlikYukseklik * 0.6;
             let isimGeo;
@@ -417,11 +413,9 @@
             isimGeo.computeBoundingBox();
             let isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
 
-            const maxIsimGenislik = icGenislik - delikCap - 6;
-            
-            // İsim yazısını deliğin SAĞINA yerleştir (deliğin ortasından başlayarak)
+            // İsim yazısı için alan: deliğin sağından plakanın sağına kadar
             const isimAlanSol = delikMerkezX + delikCap / 2 + 2;
-            const isimAlanGenislik = (uzunluk / 2 - kenarlikKalinlik) - isimAlanSol;
+            const isimAlanGenislik = (uzunluk / 2 - kenarlikKalinlik - 1) - isimAlanSol;
             
             if (isimWidth > isimAlanGenislik && isimWidth > 0) {
                 const scale = isimAlanGenislik / isimWidth;
@@ -435,19 +429,19 @@
                 });
                 isimGeo.computeBoundingBox();
                 isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
-                const isimMesh = new THREE.Mesh(isimGeo, siyahTextMat);
+                const isimMesh = new THREE.Mesh(isimGeo, beyazTextMat);
                 isimMesh.position.set(
                     isimAlanSol + (isimAlanGenislik - isimWidth) / 2,
                     isimSeritY - newSize / 2.5,
-                    yaziZ + kabartmaYuksekligi
+                    beyazZ + 0.5
                 );
                 keychainGroup.add(isimMesh);
             } else {
-                const isimMesh = new THREE.Mesh(isimGeo, siyahTextMat);
+                const isimMesh = new THREE.Mesh(isimGeo, beyazTextMat);
                 isimMesh.position.set(
                     isimAlanSol + (isimAlanGenislik - isimWidth) / 2,
                     isimSeritY - isimFontSize / 2.5,
-                    yaziZ + kabartmaYuksekligi
+                    beyazZ + 0.5
                 );
                 keychainGroup.add(isimMesh);
             }
