@@ -207,7 +207,6 @@
         return shape;
     }
 
-    // Metni iki satıra böl (son kelime alta)
     function metniBol(metin) {
         const parcalar = metin.trim().split(/\s+/);
         if (parcalar.length <= 1) {
@@ -298,13 +297,14 @@
 
         // ============================================
         // 3. TR KUTUSU
+        // Otomobil: Sol üst, üst alanın %70'i
+        // Motosiklet: Sol üst, üst alanın %55'i (daha küçük!)
         // ============================================
-        // Otomobil: Sol üstte küçük kare
-        // Motosiklet: Sol üstte biraz daha büyük (plaka kare olduğu için)
-        const trKutuBoyutCarpan = currentVehicle === 'moto' ? 0.85 : 0.7;
-        const trKutuGenislik = ustAlanYukseklik * trKutuBoyutCarpan;
-        const trKutuYukseklik = ustAlanYukseklik * trKutuBoyutCarpan;
+        const trKutuCarpan = currentVehicle === 'moto' ? 0.55 : 0.7;
+        const trKutuGenislik = ustAlanYukseklik * trKutuCarpan;
+        const trKutuYukseklik = ustAlanYukseklik * trKutuCarpan;
         const trKutuX = -uzunluk / 2 + kenarlikKalinlik + trKutuGenislik / 2 + 1;
+        // TR kutusu üst alanın ÜST kısmına yaslanacak
         const trKutuY = yukseklik / 2 - kenarlikKalinlik - trKutuYukseklik / 2 - 1;
 
         const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, kabartmaYuksekligi);
@@ -332,18 +332,20 @@
 
         // ============================================
         // 4. PLAKA YAZISI
-        // OTOMOBİL: Tek satır
-        // MOTOSİKLET: İki satır (üst + alt)
         // ============================================
         const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 2;
         const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - kenarlikKalinlik - 2;
 
+        // Yazı alanının dikey sınırları (siyah isim şeridine basmamalı!)
+        const ustAlanUst = yukseklik / 2 - kenarlikKalinlik;
+        const ustAlanAlt = -yukseklik / 2 + kenarlikKalinlik + isimlikYukseklik;
+
         if (currentVehicle === 'araba') {
             // ============================================
-            // OTOMOBİL: Tek satır, ortalanmış
+            // OTOMOBİL: Tek satır
             // ============================================
-            const plakaYaziFontSize = ustAlanYukseklik * 0.7;
-            const plakaYaziY = yukseklik / 2 - kenarlikKalinlik - ustAlanYukseklik / 2;
+            let plakaYaziFontSize = ustAlanYukseklik * 0.7;
+            const plakaYaziY = (ustAlanUst + ustAlanAlt) / 2;
 
             let plakaTextGeo;
             try {
@@ -377,14 +379,15 @@
                     height: kabartmaYuksekligi * 0.5,
                     curveSegments: 8
                 });
+                plakaYaziFontSize = newSize;
                 plakaTextGeo.computeBoundingBox();
                 plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
             }
 
             // Yükseklik sığdır
-            const maxPlakaYaziYukseklik = ustAlanYukseklik * 0.85;
-            if (plakaTextHeight > maxPlakaYaziYukseklik && plakaTextHeight > 0) {
-                const scale = maxPlakaYaziYukseklik / plakaTextHeight;
+            const maxYukseklik = ustAlanYukseklik * 0.8;
+            if (plakaTextHeight > maxYukseklik && plakaTextHeight > 0) {
+                const scale = maxYukseklik / plakaTextHeight;
                 const newSize = plakaYaziFontSize * scale;
                 plakaTextGeo.dispose();
                 plakaTextGeo = new THREE.TextGeometry(plakaText, {
@@ -393,6 +396,7 @@
                     height: kabartmaYuksekligi * 0.5,
                     curveSegments: 8
                 });
+                plakaYaziFontSize = newSize;
                 plakaTextGeo.computeBoundingBox();
                 plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
             }
@@ -407,17 +411,21 @@
 
         } else {
             // ============================================
-            // MOTOSİKLET: İki satır (üst + alt)
+            // MOTOSİKLET: İki satır
             // ============================================
             const bolunmus = metniBol(plakaText);
             
-            // Her iki satır için font boyutu (üst alanın yarısı kadar)
-            const satirYukseklik = ustAlanYukseklik / 2;
+            // Üst alanı ikiye böl
+            const ustAlanToplam = ustAlanUst - ustAlanAlt;
+            const satirYukseklik = ustAlanToplam / 2;
+            
+            // Yazı boyutu: satır yüksekliğinin %70'i
             let plakaYaziFontSize = satirYukseklik * 0.7;
             
-            // Üst ve alt satır konumları
-            const ustSatirY = yukseklik / 2 - kenarlikKalinlik - satirYukseklik / 2;
-            const altSatirY = ustSatirY - satirYukseklik;
+            // Üst satır merkezi (üst yarıda)
+            const ustSatirY = ustAlanUst - satirYukseklik / 2;
+            // Alt satır merkezi (alt yarıda)
+            const altSatirY = ustAlanAlt + satirYukseklik / 2;
 
             // ---- ÜST SATIR ----
             let ustGeo;
@@ -451,15 +459,15 @@
                     height: kabartmaYuksekligi * 0.5,
                     curveSegments: 8
                 });
+                plakaYaziFontSize = newSize;
                 ustGeo.computeBoundingBox();
                 ustWidth = ustGeo.boundingBox.max.x - ustGeo.boundingBox.min.x;
-                ustHeight = ustGeo.boundingBox.max.y - ustGeo.boundingBox.min.y;
             }
 
             // Yükseklik sığdır
-            const maxUstYukseklik = satirYukseklik * 0.85;
-            if (ustHeight > maxUstYukseklik && ustHeight > 0) {
-                const scale = maxUstYukseklik / ustHeight;
+            const maxSatirYukseklik = satirYukseklik * 0.8;
+            if (ustHeight > maxSatirYukseklik && ustHeight > 0) {
+                const scale = maxSatirYukseklik / ustHeight;
                 const newSize = plakaYaziFontSize * scale;
                 ustGeo.dispose();
                 ustGeo = new THREE.TextGeometry(bolunmus.ust, {
@@ -468,6 +476,7 @@
                     height: kabartmaYuksekligi * 0.5,
                     curveSegments: 8
                 });
+                plakaYaziFontSize = newSize;
                 ustGeo.computeBoundingBox();
                 ustWidth = ustGeo.boundingBox.max.x - ustGeo.boundingBox.min.x;
             }
@@ -515,12 +524,11 @@
                     });
                     altGeo.computeBoundingBox();
                     altWidth = altGeo.boundingBox.max.x - altGeo.boundingBox.min.x;
-                    altHeight = altGeo.boundingBox.max.y - altGeo.boundingBox.min.y;
                 }
 
                 // Yükseklik sığdır
-                if (altHeight > maxUstYukseklik && altHeight > 0) {
-                    const scale = maxUstYukseklik / altHeight;
+                if (altHeight > maxSatirYukseklik && altHeight > 0) {
+                    const scale = maxSatirYukseklik / altHeight;
                     const newSize = plakaYaziFontSize * scale;
                     altGeo.dispose();
                     altGeo = new THREE.TextGeometry(bolunmus.alt, {
