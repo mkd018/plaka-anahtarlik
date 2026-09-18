@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plaka Anahtarlık Fabrikası</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FontLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/TextGeometry.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/STLExporter.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; padding: 20px; display: flex; justify-content: center; min-height: 100vh; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 500px; max-width: 100%; }
+        h2 { color: #333; margin-top: 0; text-align: center; font-size: 20px; }
+        .form-group { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+        label { font-weight: 600; color: #555; font-size: 14px; }
+        input[type="text"], input[type="number"] { width: 200px; padding: 8px 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; text-align: right; }
+        input:read-only { background: #f5f5f5; color: #666; }
+        .full-width { width: 100%; display: block; margin-bottom: 8px; }
+        .full-width input { width: 100%; text-align: left; }
+
+        /* Araç Tipi Seçici */
+        .vehicle-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+        .vehicle-btn { flex: 1; padding: 12px; border: 2px solid #ddd; background: white; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; color: #666; transition: all 0.2s; text-align: center; }
+        .vehicle-btn:hover { border-color: #007bff; }
+        .vehicle-btn.active { border-color: #007bff; background: #e7f3ff; color: #007bff; }
+        .vehicle-btn .emoji { display: block; font-size: 22px; margin-bottom: 4px; }
+
+        /* TR Kutusu Renk Seçici */
+        .color-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+        .color-btn { flex: 1; padding: 12px; border: 3px solid transparent; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: bold; color: white; transition: all 0.2s; }
+        .color-btn.mavi { background: #003399; }
+        .color-btn.kirmizi { background: #CC0000; }
+        .color-btn.active { border-color: #333; box-shadow: 0 0 0 2px white inset; }
+        .color-btn:hover { opacity: 0.9; }
+
+        #canvas-container { width: 100%; height: 280px; background: #e9ecef; border-radius: 8px; margin: 15px 0; position: relative; overflow: hidden; cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
+        button.action-btn { background: #007bff; color: white; border: none; padding: 12px; width: 100%; border-radius: 6px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button.action-btn:hover { background: #0056b3; }
+        button.action-btn:disabled { background: #ccc; cursor: not-allowed; }
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
+        .status { font-size: 12px; color: #28a745; text-align: center; font-weight: bold; margin-bottom: 10px; padding: 6px; border-radius: 4px; }
+        .status.error { color: #dc3545; background: #f8d7da; }
+        .status.loading { color: #856404; background: #fff3cd; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🚗 Plaka Anahtarlık Fabrikası</h2>
+
+    <label style="display:block; margin-bottom:6px;">Araç Tipi:</label>
+    <div class="vehicle-selector">
+        <button class="vehicle-btn active" id="btnAraba" onclick="setVehicle('araba')">
+            <span class="emoji">🚗</span>Otomobil
+        </button>
+        <button class="vehicle-btn" id="btnMoto" onclick="setVehicle('moto')">
+            <span class="emoji">🏍️</span>Motosiklet
+        </button>
+    </div>
+
+    <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
+        <label for="plakaText">Plaka Yazısı:</label>
+        <input type="text" id="plakaText" value="59 XXX 7XX" oninput="updateKeychain()" style="margin-top: 5px;">
+    </div>
+
+    <div class="form-group full-width" style="flex-direction: column; align-items: flex-start;">
+        <label for="isimText">İsim (Alt Yazı):</label>
+        <input type="text" id="isimText" value="MUSTAFA" oninput="updateKeychain()" style="margin-top: 5px;">
+    </div>
+
+    <label style="display:block; margin-bottom:6px;">TR Kutusu Rengi:</label>
+    <div class="color-selector">
+        <button class="color-btn mavi active" id="btnMavi" onclick="setColor('mavi')">🔵 MAVİ</button>
+        <button class="color-btn kirmizi" id="btnKirmizi" onclick="setColor('kirmizi')">🔴 KIRMIZI</button>
+    </div>
+
+    <hr>
+
+    <div class="form-group">
+        <label for="uzunlukInput">Uzunluk (mm):</label>
+        <input type="number" id="uzunlukInput" value="100" min="40" max="300" oninput="updateKeychain()">
+    </div>
+    <div class="form-group">
+        <label for="yukseklikInput">Yükseklik (mm):</label>
+        <input type="number" id="yukseklikInput" value="21.2" readonly>
+    </div>
+    <div class="form-group">
+        <label for="kalinlikInput">Kalınlık (mm):</label>
+        <input type="number" id="kalinlikInput" value="3" min="1" max="10" step="0.5" oninput="updateKeychain()">
+    </div>
+    <div class="form-group">
+        <label for="delikInput">Delik Çapı (mm):</label>
+        <input type="number" id="delikInput" value="5" min="2" max="10" step="0.5" oninput="updateKeychain()">
+    </div>
+
+    <div id="status" class="status loading">Font yükleniyor...</div>
+
+    <div id="canvas-container"></div>
+
+    <button class="action-btn" id="downloadBtn" onclick="downloadSTL()" disabled>📥 STL İndir</button>
+</div>
+
+<script>
+    let scene, camera, renderer, controls, keychainGroup, loadedFont = null;
+
+    // ============================================
+    // AYARLAR
+    // ============================================
+    const VEHICLE_SETTINGS = {
+        araba: {
+            oran: 520 / 110,        // Gerçek oran: 520mm / 110mm = 4.727
+            varsayilanUzunluk: 100,  // mm
+            isim: 'Otomobil'
+        },
+        moto: {
+            oran: 240 / 150,         // Gerçek oran: 240mm / 150mm = 1.6
+            varsayilanUzunluk: 70,   // mm
+            isim: 'Motosiklet'
+        }
+    };
+
+    const RENKLER = {
+        mavi: 0x003399,      // Türk plakası mavisi
+        kirmizi: 0xCC0000    // Kırmızı
+    };
+
+    let currentVehicle = 'araba';
+    let currentColor = 'mavi';
+
+    // ============================================
+    // 3D KURULUM
+    // ============================================
+    function init3D() {
+        const container = document.getElementById('canvas-container');
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xe9ecef);
+
+        camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, -150, 90);
+        camera.up.set(0, 0, 1);
+        camera.lookAt(0, 0, 0);
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
+
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.75));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
+        dirLight.position.set(20, -30, 50);
+        scene.add(dirLight);
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.3);
+        backLight.position.set(-20, 30, -30);
+        scene.add(backLight);
+
+        loadFont();
+        animate();
+    }
+
+    // ============================================
+    // FONT YÜKLEME
+    // ============================================
+    function loadFont() {
+        const statusEl = document.getElementById('status');
+        const downloadBtn = document.getElementById('downloadBtn');
+        statusEl.innerText = "Font yükleniyor...";
+        statusEl.className = "status loading";
+
+        // Türkçe destekli Optimer Bold fontunu kullan
+        const loader = new THREE.FontLoader();
+        loader.load(
+            'https://threejs.org/examples/fonts/optimer_bold.typeface.json',
+            function (font) {
+                loadedFont = font;
+                statusEl.innerText = "✅ Font yüklendi! Hazır.";
+                statusEl.className = "status";
+                downloadBtn.disabled = false;
+                updateKeychain();
+            },
+            undefined,
+            function () {
+                statusEl.innerText = "❌ Font yüklenemedi! İnternet bağlantınızı kontrol edin.";
+                statusEl.className = "status error";
+            }
+        );
+    }
+
+    // ============================================
+    // ARAÇ TİPİ DEĞİŞTİR
+    // ============================================
+    function setVehicle(type) {
+        currentVehicle = type;
+        document.getElementById('btnAraba').classList.toggle('active', type === 'araba');
+        document.getElementById('btnMoto').classList.toggle('active', type === 'moto');
+        
+        // Uzunluğu varsayılana ayarla
+        const uzunlukInput = document.getElementById('uzunlukInput');
+        uzunlukInput.value = VEHICLE_SETTINGS[type].varsayilanUzunluk;
+        
+        updateKeychain();
+    }
+
+    // ============================================
+    // RENK DEĞİŞTİR
+    // ============================================
+    function setColor(color) {
+        currentColor = color;
+        document.getElementById('btnMavi').classList.toggle('active', color === 'mavi');
+        document.getElementById('btnKirmizi').classList.toggle('active', color === 'kirmizi');
+        updateKeychain();
+    }
+
+    // ============================================
+    // YÜKSEKLİK OTOMATİK HESAPLAMA
+    // ============================================
+    function hesaplaYukseklik(uzunluk) {
+        const oran = VEHICLE_SETTINGS[currentVehicle].oran;
+        return (uzunluk / oran).toFixed(1);
+    }
+
+    // ============================================
+    // YUVARLATILMIŞ DİKDÖRTGEN (Ana hat)
+    // ============================================
+    function createRoundedRectShape(width, height, radius) {
+        const shape = new THREE.Shape();
+        const x = -width / 2;
+        const y = -height / 2;
+        radius = Math.min(radius, width / 2, height / 2);
+
+        shape.moveTo(x, y + radius);
+        shape.lineTo(x, y + height - radius);
+        shape.quadraticCurveTo(x, y + height, x + radius, y + height);
+        shape.lineTo(x + width - radius, y + height);
+        shape.quadraticCurveTo(x + width, y + height, x + width, y + height - radius);
+        shape.lineTo(x + width, y + radius);
+        shape.quadraticCurveTo(x + width, y, x + width - radius, y);
+        shape.lineTo(x + radius, y);
+        shape.quadraticCurveTo(x, y, x, y + radius);
+        
+        return shape;
+    }
+
+    // ============================================
+    // ANAHTARLIK OLUŞTURMA
+    // ============================================
+    function updateKeychain() {
+        if (!scene || !loadedFont) return;
+        if (keychainGroup) scene.remove(keychainGroup);
+
+        keychainGroup = new THREE.Group();
+
+        // Girdileri oku
+        const uzunluk = parseFloat(document.getElementById('uzunlukInput').value) || 100;
+        const yukseklik = parseFloat(hesaplaYukseklik(uzunluk));
+        document.getElementById('yukseklikInput').value = yukseklik;
+        
+        const kalinlik = parseFloat(document.getElementById('kalinlikInput').value) || 3;
+        const delikCap = parseFloat(document.getElementById('delikInput').value) || 5;
+        const plakaText = document.getElementById('plakaText').value || "59 XXX 7XX";
+        const isimText = document.getElementById('isimText').value || "MUSTAFA";
+        const trRenk = RENKLER[currentColor];
+
+        // Malzemeler
+        const beyazMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.4 });
+        const siyahMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.4 });
+        const trMat = new THREE.MeshStandardMaterial({ color: trRenk, roughness: 0.3 });
+        const plakaTextMat = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0.3 });
+        const isimTextMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+        const trTextMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.3 });
+
+        // ============================================
+        // 1. ANA PLAKA (BEYAZ ZEMİN)
+        // ============================================
+        // Delik sol tarafta olacak
+        const delikMerkezX = -uzunluk / 2 + 4;
+        const plakaShape = createRoundedRectShape(uzunluk, yukseklik, 1.5);
+        
+        // Delik
+        const delikPath = new THREE.Path();
+        delikPath.absarc(delikMerkezX, 0, delikCap / 2, 0, Math.PI * 2, true);
+        plakaShape.holes.push(delikPath);
+
+        const plakaGeo = new THREE.ExtrudeGeometry(plakaShape, {
+            depth: kalinlik,
+            bevelEnabled: true,
+            bevelSegments: 2,
+            steps: 1,
+            bevelSize: 0.1,
+            bevelThickness: 0.1
+        });
+        plakaGeo.center();
+        const plakaMesh = new THREE.Mesh(plakaGeo, beyazMat);
+        plakaMesh.position.set(0, 0, kalinlik / 2);
+        keychainGroup.add(plakaMesh);
+
+        // ============================================
+        // 2. TR KUTUSU (Mavi veya Kırmızı)
+        // ============================================
+        const trKutuGenislik = yukseklik * 0.55;
+        const trKutuYukseklik = yukseklik * 0.55;
+        const trKutuX = -uzunluk / 2 + 4 + delikCap / 2 + 1 + trKutuGenislik / 2;
+        const trKutuY = (yukseklik / 2) - (trKutuYukseklik / 2) - 1;
+
+        const trKutuGeo = new THREE.BoxGeometry(trKutuGenislik, trKutuYukseklik, 0.8);
+        const trKutuMesh = new THREE.Mesh(trKutuGeo, trMat);
+        trKutuMesh.position.set(trKutuX, trKutuY, kalinlik + 0.4);
+        keychainGroup.add(trKutuMesh);
+
+        // TR yazısı
+        if (loadedFont) {
+            const trFontSize = trKutuYukseklik * 0.6;
+            const trGeo = new THREE.TextGeometry("TR", {
+                font: loadedFont,
+                size: trFontSize,
+                height: 0.5,
+                curveSegments: 8
+            });
+            trGeo.computeBoundingBox();
+            const trWidth = trGeo.boundingBox.max.x - trGeo.boundingBox.min.x;
+            const trMesh = new THREE.Mesh(trGeo, trTextMat);
+            trMesh.position.set(
+                trKutuX - trWidth / 2,
+                trKutuY - trFontSize / 2.5,
+                kalinlik + 0.8
+            );
+            keychainGroup.add(trMesh);
+        }
+
+        // ============================================
+        // 3. PLAKA ÜST YAZISI (Siyah, kabartma)
+        // ============================================
+        const plakaYaziAlanX = trKutuX + trKutuGenislik / 2 + 1.5;
+        const plakaYaziAlanGenislik = (uzunluk / 2) - plakaYaziAlanX - 1.5;
+        const plakaYaziFontSize = yukseklik * 0.5;
+
+        // Üst yazı alanı - plakayı üst kısma yerleştir
+        const plakaYaziY = yukseklik * 0.12;
+
+        let plakaTextGeo;
+        try {
+            plakaTextGeo = new THREE.TextGeometry(plakaText, {
+                font: loadedFont,
+                size: plakaYaziFontSize,
+                height: 0.5,
+                curveSegments: 8
+            });
+        } catch(e) {
+            plakaTextGeo = new THREE.TextGeometry(plakaText.replace(/[ÇĞİÖŞÜçğıöşü]/g, '?'), {
+                font: loadedFont,
+                size: plakaYaziFontSize,
+                height: 0.5,
+                curveSegments: 8
+            });
+        }
+        
+        plakaTextGeo.computeBoundingBox();
+        let plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
+
+        // Sığdır
+        if (plakaTextWidth > plakaYaziAlanGenislik && plakaTextWidth > 0) {
+            const scale = plakaYaziAlanGenislik / plakaTextWidth;
+            const newSize = plakaYaziFontSize * scale;
+            plakaTextGeo.dispose();
+            plakaTextGeo = new THREE.TextGeometry(plakaText, {
+                font: loadedFont,
+                size: newSize,
+                height: 0.5,
+                curveSegments: 8
+            });
+            plakaTextGeo.computeBoundingBox();
+            plakaTextWidth = plakaTextGeo.boundingBox.max.x - plakaTextGeo.boundingBox.min.x;
+        }
+
+        const plakaTextMesh = new THREE.Mesh(plakaTextGeo, plakaTextMat);
+        plakaTextMesh.position.set(
+            plakaYaziAlanX + (plakaYaziAlanGenislik - plakaTextWidth) / 2,
+            plakaYaziY - plakaYaziFontSize / 2.5,
+            kalinlik + 0.5
+        );
+        keychainGroup.add(plakaTextMesh);
+
+        // ============================================
+        // 4. ALT SİYAH ŞERİT (İSİMLİK)
+        // ============================================
+        const seritYukseklik = yukseklik * 0.28;
+        const seritY = -yukseklik / 2 + seritYukseklik / 2;
+        const seritX = 4; // Sol taraftaki delik bölgesini atla
+        
+        const seritGenislik = uzunluk - 8;
+        const seritGeo = new THREE.BoxGeometry(seritGenislik, seritYukseklik, 0.5);
+        const seritMesh = new THREE.Mesh(seritGeo, siyahMat);
+        seritMesh.position.set(seritX, seritY, kalinlik + 0.25);
+        keychainGroup.add(seritMesh);
+
+        // İsim yazısı
+        if (isimText.trim() !== "") {
+            const isimFontSize = seritYukseklik * 0.7;
+            const isimGeo = new THREE.TextGeometry(isimText, {
+                font: loadedFont,
+                size: isimFontSize,
+                height: 0.5,
+                curveSegments: 8
+            });
+            isimGeo.computeBoundingBox();
+            let isimWidth = isimGeo.boundingBox.max.x - isimGeo.boundingBox.min.x;
+
+            // Sığdır
+            const maxIsimGenislik = seritGenislik - 2;
+            if (isimWidth > maxIsimGenislik && isimWidth > 0) {
+                const scale = maxIsimGenislik / isimWidth;
+                isimGeo.dispose();
+                const newSize = isimFontSize * scale;
+                const newIsimGeo = new THREE.TextGeometry(isimText, {
+                    font: loadedFont,
+                    size: newSize,
+                    height: 0.5,
+                    curveSegments: 8
+                });
+                newIsimGeo.computeBoundingBox();
+                isimWidth = newIsimGeo.boundingBox.max.x - newIsimGeo.boundingBox.min.x;
+                const isimMesh = new THREE.Mesh(newIsimGeo, isimTextMat);
+                isimMesh.position.set(
+                    seritX - isimWidth / 2,
+                    seritY - newSize / 2.5,
+                    kalinlik + 0.6
+                );
+                keychainGroup.add(isimMesh);
+            } else {
+                const isimMesh = new THREE.Mesh(isimGeo, isimTextMat);
+                isimMesh.position.set(
+                    seritX - isimWidth / 2,
+                    seritY - isimFontSize / 2.5,
+                    kalinlik + 0.6
+                );
+                keychainGroup.add(isimMesh);
+            }
+        }
+
+        scene.add(keychainGroup);
+    }
+
+    // ============================================
+    // ANİMASYON
+    // ============================================
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+
+    // ============================================
+    // STL İNDİR
+    // ============================================
+    function downloadSTL() {
+        if (!keychainGroup) {
+            alert("Model henüz yüklenmedi!");
+            return;
+        }
+
+        const exporter = new THREE.STLExporter();
+        const result = exporter.parse(keychainGroup, { binary: true });
+
+        const blob = new Blob([result], { type: 'application/octet-stream' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        
+        const plakaText = document.getElementById('plakaText').value || "plaka";
+        const arac = VEHICLE_SETTINGS[currentVehicle].isim;
+        link.download = `${plakaText.replace(/[^a-zA-Z0-9]/g, '_')}_${arac}_anahtarlik.stl`;
+        link.click();
+    }
+
+    // ============================================
+    // PENCERE YENİDEN BOYUTLANDIRMA
+    // ============================================
+    window.addEventListener('resize', () => {
+        const container = document.getElementById('canvas-container');
+        if (camera && renderer) {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+    });
+
+    window.onload = init3D;
+</script>
+
+</body>
+</html>
